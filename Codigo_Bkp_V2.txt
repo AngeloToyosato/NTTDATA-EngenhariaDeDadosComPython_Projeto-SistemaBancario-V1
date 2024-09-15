@@ -1,0 +1,157 @@
+from datetime import datetime
+import itertools
+
+menu_principal = """
+[c] Cadastrar Conta
+[l] Listar Contas
+[d] Depositar
+[s] Sacar
+[e] Extrato
+[q] Sair
+
+=> """
+
+contas = {}
+id_conta_generator = itertools.count(1)  # Inicia o contador a partir de 1
+
+def formatar_cpf(cpf):
+    return f"{cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}"
+
+def formatar_data(data):
+    return f"{data[:2]}/{data[2:4]}/{data[4:]}"
+
+def cadastrar_conta():
+    while True:
+        nome = input("Informe o nome completo do titular: ")
+        cpf = input("Informe o CPF (somente números): ")
+        if len(cpf) != 11 or not cpf.isdigit():
+            print("CPF inválido! Deve conter 11 dígitos numéricos.")
+            continue
+        cpf_formatado = formatar_cpf(cpf)
+        
+        data_nascimento = input("Informe a data de nascimento (ddmmaaaa): ")
+        if len(data_nascimento) != 8 or not data_nascimento.isdigit():
+            print("Data de nascimento inválida! Deve conter 8 dígitos numéricos.")
+            continue
+        data_nascimento_formatada = formatar_data(data_nascimento)
+        
+        id_conta = next(id_conta_generator)  # Gera um novo ID único e sequencial
+        
+        contas[id_conta] = {
+            "nome": nome,
+            "cpf": cpf_formatado,
+            "data_nascimento": data_nascimento_formatada,
+            "saldo": 0,
+            "extrato": "",
+            "numero_saques": 0,
+            "transacoes_diarias": 0,
+            "saques_diarios": 0,
+            "data_ultima_transacao": None
+        }
+        print(f"Conta de {nome} cadastrada com sucesso! ID da conta: {id_conta}")
+        break
+
+def listar_contas():
+    if not contas:
+        print("Nenhuma conta cadastrada.")
+    else:
+        print("\n========== CONTAS ==========")
+        for id_conta, info in contas.items():
+            print(f"ID: {id_conta}, Nome: {info['nome']}, CPF: {info['cpf']}, Data de Nascimento: {info['data_nascimento']}")
+        print("============================")
+
+def selecionar_conta():
+    listar_contas()
+    id_conta = int(input("Informe o ID da conta: "))
+    if id_conta in contas:
+        return id_conta
+    else:
+        print("Conta não encontrada.")
+        return None
+
+def verificar_limite_transacoes(conta):
+    hoje = datetime.now().date()
+    if conta["data_ultima_transacao"] != hoje:
+        conta["transacoes_diarias"] = 0
+        conta["saques_diarios"] = 0
+        conta["data_ultima_transacao"] = hoje
+
+    if conta["transacoes_diarias"] >= 10:
+        print("Operação falhou! Você excedeu o número de transações permitidas para hoje.")
+        return False
+    return True
+
+def depositar():
+    id_conta = selecionar_conta()
+    if id_conta is None:
+        return
+    conta = contas[id_conta]
+    if not verificar_limite_transacoes(conta):
+        return
+    valor = float(input("Informe o valor do depósito: "))
+    if valor > 0:
+        conta["saldo"] += valor
+        data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        conta["extrato"] += f"{data_hora} - Depósito: R$ {valor:.2f}\n"
+        conta["transacoes_diarias"] += 1
+        print("Depósito realizado com sucesso!")
+    else:
+        print("Operação falhou! O valor informado é inválido.")
+
+def sacar():
+    id_conta = selecionar_conta()
+    if id_conta is None:
+        return
+    conta = contas[id_conta]
+    if not verificar_limite_transacoes(conta):
+        return
+    if conta["saques_diarios"] >= 3:
+        print("Operação falhou! Número máximo de saques diários excedido.")
+        return
+    valor = float(input("Informe o valor do saque: "))
+
+    excedeu_saldo = valor > conta["saldo"]
+    excedeu_limite = valor > 500
+
+    if excedeu_saldo:
+        print("Operação falhou! Você não tem saldo suficiente.")
+    elif excedeu_limite:
+        print("Operação falhou! O valor do saque excede o limite.")
+    elif valor > 0:
+        conta["saldo"] -= valor
+        data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        conta["extrato"] += f"{data_hora} - Saque: R$ {valor:.2f}\n"
+        conta["numero_saques"] += 1
+        conta["transacoes_diarias"] += 1
+        conta["saques_diarios"] += 1
+        print("Saque realizado com sucesso!")
+    else:
+        print("Operação falhou! O valor informado é inválido.")
+
+def extrato():
+    id_conta = selecionar_conta()
+    if id_conta is None:
+        return
+    conta = contas[id_conta]
+    print("\n========== EXTRATO ==========")
+    print("Não foram realizadas movimentações." if not conta["extrato"] else conta["extrato"])
+    print(f"\nSaldo: R$ {conta['saldo']:.2f}")
+    print("=============================")
+
+while True:
+    opcao = input(menu_principal)
+
+    if opcao == "c":
+        cadastrar_conta()
+    elif opcao == "l":
+        listar_contas()
+    elif opcao == "d":
+        depositar()
+    elif opcao == "s":
+        sacar()
+    elif opcao == "e":
+        extrato()
+    elif opcao == "q":
+        break
+    else:
+        print("Operação inválida! Por favor, selecione novamente a operação desejada.")
